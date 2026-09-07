@@ -8,6 +8,7 @@
 #include "qnn/loss/mse.hpp"
 #include "qnn/nn/layers/activation.hpp"
 #include "qnn/nn/layers/linear.hpp"
+#include "qnn/optim/sgd.hpp"
 
 using qnn::loss::mse;
 using qnn::nn::layers::linear;
@@ -39,10 +40,17 @@ int main() {
     linear<float> l1(2, 4, true, 7);
     linear<float> l2(4, 1, true, 7);
 
-    const float lr = 0.6f;
+    qnn::optim::sgd<float> opt(0.6f);
+    opt.add(l1.weight(), l1.dweight());
+    opt.add(l1.bias(), l1.dbias());
+    opt.add(l2.weight(), l2.dweight());
+    opt.add(l2.bias(), l2.dbias());
+
     const int steps = 3000;
 
     for (int step = 0; step < steps; ++step) {
+        opt.zero_grad();
+
         tensor<qf> y1 = l1.forward(x);
 
         tensor<qf> h(shape{4, 4});
@@ -68,8 +76,7 @@ int main() {
         }
 
         l1.backward(dy1);
-        l1.apply_gradients(lr);
-        l2.apply_gradients(lr);
+        opt.step();
 
         if (step % 300 == 0) std::printf("step %4d  loss %.5f\n", step, loss);
     }
