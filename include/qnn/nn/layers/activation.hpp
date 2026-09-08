@@ -26,6 +26,12 @@ quaternion<T> split_tanh(const quaternion<T>& q) {
     return quaternion<T>(std::tanh(q.w), std::tanh(q.x), std::tanh(q.y), std::tanh(q.z));
 }
 
+template <typename T>
+quaternion<T> split_tanh_prime(const quaternion<T>& q) {
+    auto d = [](T v) { T t = std::tanh(v); return T(1) - t * t; };
+    return quaternion<T>(d(q.w), d(q.x), d(q.y), d(q.z));
+}
+
 }  // namespace layers
 }  // namespace nn
 }  // namespace qnn

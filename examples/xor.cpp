@@ -15,6 +15,7 @@ using qnn::loss::mse;
 using qnn::nn::Module;
 using qnn::nn::layers::linear;
 using qnn::nn::layers::split_tanh;
+using qnn::nn::layers::split_tanh_prime;
 using qnn::quaternion;
 using qnn::shape;
 using qnn::tensor;
@@ -22,14 +23,6 @@ using qf = quaternion<float>;
 
 namespace {
 constexpr std::size_t kBatch = 4;
-
-qf tanh_prime(const qf& q) {
-    float tw = 1 - std::tanh(q.w) * std::tanh(q.w);
-    float tx = 1 - std::tanh(q.x) * std::tanh(q.x);
-    float ty = 1 - std::tanh(q.y) * std::tanh(q.y);
-    float tz = 1 - std::tanh(q.z) * std::tanh(q.z);
-    return qf(tw, tx, ty, tz);
-}
 
 class MLP : public Module<float> {
 public:
@@ -48,7 +41,7 @@ public:
         tensor<qf> dyh = l2.backward(dy);
         for (std::size_t i = 0; i < kBatch; ++i) {
             for (std::size_t j = 0; j < 4; ++j) {
-                const qf gate = tanh_prime(pre1_(i, j));
+                const qf gate = split_tanh_prime(pre1_(i, j));
                 const qf g = dyh(i, j);
                 dyh(i, j) = qf(g.w * gate.w, g.x * gate.x, g.y * gate.y, g.z * gate.z);
             }
