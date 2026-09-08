@@ -13,6 +13,9 @@ target_include_directories(qnn PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(qnn PRIVATE -Wall -Wextra -Werror)
 
 find_package(ZLIB REQUIRED)
+find_package(OpenMP REQUIRED)
+
+target_link_libraries(qnn PUBLIC OpenMP::OpenMP_CXX)
 
 enable_testing()
 

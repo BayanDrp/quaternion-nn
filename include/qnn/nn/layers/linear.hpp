@@ -51,6 +51,7 @@ public:
         const std::size_t batch = x.dim(0);
 
         tensor<quaternion<T>> out(::qnn::shape{batch, out_});
+#pragma omp parallel for collapse(2) schedule(static)
         for (std::size_t i = 0; i < batch; ++i) {
             for (std::size_t j = 0; j < out_; ++j) {
                 quaternion<T> acc{};
@@ -72,14 +73,29 @@ public:
         const std::size_t batch = x_.dim(0);
 
         tensor<quaternion<T>> dx(::qnn::shape{batch, in_});
-        for (std::size_t i = 0; i < batch; ++i) {
-            for (std::size_t j = 0; j < out_; ++j) {
-                const quaternion<T> d = dy(i, j);
-                if (use_bias_) dbias_[j] = dbias_[j] + d;
-                for (std::size_t k = 0; k < in_; ++k) {
-                    dweight_(j, k) = dweight_(j, k) + d * x_(i, k).conjugate();
-                    dx(i, k) = dx(i, k) + weight_(j, k).conjugate() * d;
+#pragma omp parallel for schedule(static)
+        for (std::size_t j = 0; j < out_; ++j) {
+            if (use_bias_) {
+                quaternion<T> acc{};
+                for (std::size_t i = 0; i < batch; ++i) acc = acc + dy(i, j);
+                dbias_[j] = dbias_[j] + acc;
+            }
+            for (std::size_t k = 0; k < in_; ++k) {
+                quaternion<T> acc{};
+                for (std::size_t i = 0; i < batch; ++i) {
+                    acc = acc + dy(i, j) * x_(i, k).conjugate();
                 }
+                dweight_(j, k) = dweight_(j, k) + acc;
+            }
+        }
+#pragma omp parallel for collapse(2) schedule(static)
+        for (std::size_t i = 0; i < batch; ++i) {
+            for (std::size_t k = 0; k < in_; ++k) {
+                quaternion<T> acc{};
+                for (std::size_t j = 0; j < out_; ++j) {
+                    acc = acc + weight_(j, k).conjugate() * dy(i, j);
+                }
+                dx(i, k) = acc;
             }
         }
         return dx;
