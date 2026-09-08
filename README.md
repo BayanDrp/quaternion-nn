@@ -80,25 +80,32 @@ gets registered.
 
 ## Example
 
-Training loop for a single layer (full version in `examples/xor.cpp`):
+Everything is a `Module<T>` owning `Parameter<T>`s (`{ value, grad }`). Compose
+layers, expose their Parameters, and bind the whole model to an optimizer with
+one call (full version in `examples/module_parameters.cpp`):
 
 ```cpp
-linear<float> layer(3, 2, true);                 // 3 quats in, 2 quats out
-sgd<float> opt(0.05f);
-opt.add(layer.weight(), layer.dweight());
-opt.add(layer.bias(), layer.dbias());
+class MLP : public Module<float> {
+    linear<float> l1, l2;
+    // forward(x) / backward(dy)  chain the layers;
+    // parameters() / gradients() flatten l1, l2's Parameter lists
+};
+
+MLP model;
+sgd<float> opt(0.6f);
+opt.add(model);                     // binds every Parameter in the model
 
 for (int step = 0; step < 200; ++step) {
-    opt.zero_grad();
-    tensor<quaternion<float>> y = layer.forward(x);   // B×3 -> B×2
+    opt.zero_grad();                // clears every Parameter.grad
+    tensor<quaternion<float>> y = model.forward(x);
     float loss = mse(y, target);
     // upstream gradient dL/dy, then:
-    layer.backward(dy);                               // accumulates dW, db
-    opt.step();                                       // w -= lr·grad
+    model.backward(dy);             // accumulates into every Parameter.grad
+    opt.step();                     // w -= lr·grad for every Parameter
 }
 ```
 
-`examples/xor.cpp` chains two of these with a `split_tanh` between layers,
+`examples/xor.cpp` chains two linear layers with a `split_tanh` between them,
 showing the full backward pass through the Hamilton product.
 
 ## Layout
