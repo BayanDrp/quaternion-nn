@@ -5,18 +5,20 @@
 #include <cstddef>
 #include <cstdint>
 #include <random>
+#include <vector>
 
 #include "qnn/core/quaternion.hpp"
 #include "qnn/core/shape.hpp"
 #include "qnn/core/tensor.hpp"
 #include "qnn/nn/init.hpp"
+#include "qnn/nn/module.hpp"
 
 namespace qnn {
 namespace nn {
 namespace layers {
 
 template <typename T = float>
-class linear {
+class linear : public qnn::nn::Module<T> {
 public:
     linear(std::size_t in_features, std::size_t out_features, bool use_bias = true,
            std::uint32_t seed = 42)
@@ -44,6 +46,20 @@ public:
     const tensor<quaternion<T>>& dweight() const { return dweight_; }
     tensor<quaternion<T>>& dbias() { return dbias_; }
     const tensor<quaternion<T>>& dbias() const { return dbias_; }
+
+    std::vector<tensor<quaternion<T>>*> parameters() override {
+        std::vector<tensor<quaternion<T>>*> ps;
+        ps.push_back(&weight_);
+        if (use_bias_) ps.push_back(&bias_);
+        return ps;
+    }
+
+    std::vector<tensor<quaternion<T>>*> gradients() override {
+        std::vector<tensor<quaternion<T>>*> gs;
+        gs.push_back(&dweight_);
+        if (use_bias_) gs.push_back(&dbias_);
+        return gs;
+    }
 
     tensor<quaternion<T>> forward(const tensor<quaternion<T>>& x) {
         assert(x.rank() == 2);

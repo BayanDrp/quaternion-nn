@@ -1,12 +1,14 @@
 #ifndef QNN_OPTIM_OPTIMIZER_HPP
 #define QNN_OPTIM_OPTIMIZER_HPP
 
+#include <cassert>
 #include <cstddef>
 #include <utility>
 #include <vector>
 
 #include "qnn/core/quaternion.hpp"
 #include "qnn/core/tensor.hpp"
+#include "qnn/nn/module.hpp"
 
 namespace qnn {
 namespace optim {
@@ -19,6 +21,15 @@ public:
 
     void add(tensor<quaternion<T>>& param, tensor<quaternion<T>>& grad) {
         params_.emplace_back(&param, &grad);
+    }
+
+    void add(qnn::nn::Module<T>& model) {
+        const std::vector<tensor<quaternion<T>>*> ps = model.parameters();
+        const std::vector<tensor<quaternion<T>>*> gs = model.gradients();
+        assert(ps.size() == gs.size());
+        for (std::size_t i = 0; i < ps.size(); ++i) {
+            add(*ps[i], *gs[i]);
+        }
     }
 
     void zero_grad() {
