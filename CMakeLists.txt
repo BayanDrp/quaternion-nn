@@ -44,7 +44,8 @@ foreach(_src ${TEST_SOURCES})
     get_filename_component(_group ${_dir} NAME)
     qnn_add_executable(test_${_group}_${_name} tests/${_group}/${_name}.cpp)
     if(TARGET test_${_group}_${_name})
-        add_test(NAME test_${_group}_${_name} COMMAND test_${_group}_${_name})
+        add_test(NAME test_${_group}_${_name} COMMAND test_${_group}_${_name}
+                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
     endif()
 endforeach()
 
