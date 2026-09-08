@@ -10,21 +10,30 @@ from raw quaternion math up to quaternion transformers.
 
 The core engine is complete and trainable. Quaternion math, tensors, Hamilton
 matmul, a `linear` layer with verified Hamilton backprop, split activations,
-and `sgd`/`adam` optimizers all work together — a 2-layer quaternion MLP learns
-XOR to 4/4 (loss → 0) end to end.
+`split_softmax` + `cross_entropy`, and `sgd`/`adam` optimizers all work
+together — a 2-layer quaternion MLP learns XOR to 4/4 (loss → 0) end to end.
 
 Implemented so far:
 
 - `core/` — `quaternion<T>` (Hamilton product, conjugate, inverse, norm),
   `shape`, `tensor<T>` (row-major, rank-N), `quaternion_vector`/`matrix` views
-- `functional/` — Hamilton `matmul`, `matvec`
+- `functional/` — Hamilton `matmul`, `matvec`, `split_softmax` (stable), `softmax`
 - `nn/` — xavier/uniform init, split ReLU/sigmoid/tanh, `linear` layer with
-  forward + backward + gradient accumulators
-- `loss/` — component-wise `mse`
+  forward + backward + gradient accumulators (OpenMP-threaded)
+- `loss/` — component-wise `mse`, `cross_entropy` + `cross_entropy_grad`
 - `optim/` — `optimizer` base, `sgd`, `adam` (per-component)
+- `data/` — MNIST IDX loader (zlib): 2×2 pixel blocks → quaternions, {N,14,14}
 
-On the roadmap: cross-entropy + softmax classification head, MNIST, conv2d,
-attention/transformer, Python bindings.
+### Results
+
+Quaternion MLP on MNIST (196→64→10, MSE one-hot, SGD lr 0.1, 8 epochs):
+
+- **86.67%** test accuracy — C++17, OpenMP x8, ~3 min (see `examples/mnist.cpp`)
+- **86.43%** — PyTorch reference on Tesla T4 (`python/mnist_torch.py`)
+
+Hand-rolled Hamilton backprop keeps pace with a GPU reference at equal setup.
+
+On the roadmap: conv2d/QCNN, attention/transformer, Python bindings.
 
 ## Building
 
@@ -33,8 +42,9 @@ Requires: CMake ≥ 3.14, a C++17 compiler. No external libraries.
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build          # 8 tests
+ctest --test-dir build          # 11 tests
 ./build/example_xor             # trains XOR: accuracy 4/4, loss -> 0
+./build/example_mnist           # MNIST: 86.67% test (needs tools/get_mnist.sh)
 ```
 
 Empty stub files keep their `src/qnn/` slot but are skipped by the build; after
@@ -95,8 +105,10 @@ docs/         design docs (as phases land)
 - [x] **Phase 0** — core quaternion math + golden tests (`i*j=k`, norm, inverse).
 - [x] **Phase 1** — vector/matrix/tensor, Hamilton matmul, split activations, MSE.
 - [x] **Phase 2** — component-wise autograd + finite-difference grad checks + SGD.
-- [~] **Phase 3** — Linear ✓, Adam ✓, XOR converges 4/4 ✓; cross-entropy next.
-- [ ] **Phase 4** — conv2d/norm/embedding, MNIST loader, QCNN, benchmarks.
+- [x] **Phase 3** — Linear ✓, Adam ✓, XOR converges 4/4 ✓, split-softmax +
+      cross-entropy classification head ✓.
+- [~] **Phase 4** — MNIST loader ✓, MNIST example (86.67% test) ✓, OpenMP ✓;
+      conv2d/norm/embedding, QCNN, benchmarks next.
 - [ ] **Phase 5** — attention/transformer, model IO, Python bindings, publish.
 
 ## License
