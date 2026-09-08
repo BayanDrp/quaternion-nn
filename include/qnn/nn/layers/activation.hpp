@@ -16,9 +16,24 @@ quaternion<T> split_relu(const quaternion<T>& q) {
 }
 
 template <typename T>
+quaternion<T> split_relu_prime(const quaternion<T>& q) {
+    return quaternion<T>(q.w > 0 ? T(1) : T(0), q.x > 0 ? T(1) : T(0),
+                         q.y > 0 ? T(1) : T(0), q.z > 0 ? T(1) : T(0));
+}
+
+template <typename T>
 quaternion<T> split_sigmoid(const quaternion<T>& q) {
     auto s = [](T v) { return T(1) / (T(1) + std::exp(-v)); };
     return quaternion<T>(s(q.w), s(q.x), s(q.y), s(q.z));
+}
+
+template <typename T>
+quaternion<T> split_sigmoid_prime(const quaternion<T>& q) {
+    auto d = [](T v) {
+        T s = T(1) / (T(1) + std::exp(-v));
+        return s * (T(1) - s);
+    };
+    return quaternion<T>(d(q.w), d(q.x), d(q.y), d(q.z));
 }
 
 template <typename T>
