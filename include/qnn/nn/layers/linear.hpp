@@ -12,6 +12,7 @@
 #include "qnn/core/tensor.hpp"
 #include "qnn/nn/init.hpp"
 #include "qnn/nn/module.hpp"
+#include "qnn/nn/parameter.hpp"
 
 namespace qnn {
 namespace nn {
@@ -26,11 +27,9 @@ public:
           out_(out_features),
           use_bias_(use_bias),
           weight_(::qnn::shape{out_features, in_features}),
-          bias_(::qnn::shape{out_features}),
-          dweight_(::qnn::shape{out_features, in_features}),
-          dbias_(::qnn::shape{out_features}) {
+          bias_(::qnn::shape{out_features}) {
         std::mt19937 rng(seed);
-        qnn::nn::xavier(weight_, in_features, out_features, rng);
+        qnn::nn::xavier(weight_.value(), in_features, out_features, rng);
         zero_grad();
     }
 
@@ -38,26 +37,26 @@ public:
     std::size_t out_features() const { return out_; }
     bool has_bias() const { return use_bias_; }
 
-    tensor<quaternion<T>>& weight() { return weight_; }
-    const tensor<quaternion<T>>& weight() const { return weight_; }
-    tensor<quaternion<T>>& bias() { return bias_; }
-    const tensor<quaternion<T>>& bias() const { return bias_; }
-    tensor<quaternion<T>>& dweight() { return dweight_; }
-    const tensor<quaternion<T>>& dweight() const { return dweight_; }
-    tensor<quaternion<T>>& dbias() { return dbias_; }
-    const tensor<quaternion<T>>& dbias() const { return dbias_; }
+    tensor<quaternion<T>>& weight() { return weight_.value(); }
+    const tensor<quaternion<T>>& weight() const { return weight_.value(); }
+    tensor<quaternion<T>>& bias() { return bias_.value(); }
+    const tensor<quaternion<T>>& bias() const { return bias_.value(); }
+    tensor<quaternion<T>>& dweight() { return weight_.grad(); }
+    const tensor<quaternion<T>>& dweight() const { return weight_.grad(); }
+    tensor<quaternion<T>>& dbias() { return bias_.grad(); }
+    const tensor<quaternion<T>>& dbias() const { return bias_.grad(); }
 
     std::vector<tensor<quaternion<T>>*> parameters() override {
         std::vector<tensor<quaternion<T>>*> ps;
-        ps.push_back(&weight_);
-        if (use_bias_) ps.push_back(&bias_);
+        ps.push_back(&weight_.value());
+        if (use_bias_) ps.push_back(&bias_.value());
         return ps;
     }
 
     std::vector<tensor<quaternion<T>>*> gradients() override {
         std::vector<tensor<quaternion<T>>*> gs;
-        gs.push_back(&dweight_);
-        if (use_bias_) gs.push_back(&dbias_);
+        gs.push_back(&weight_.grad());
+        if (use_bias_) gs.push_back(&bias_.grad());
         return gs;
     }
 
@@ -72,9 +71,9 @@ public:
             for (std::size_t j = 0; j < out_; ++j) {
                 quaternion<T> acc{};
                 for (std::size_t k = 0; k < in_; ++k) {
-                    acc = acc + weight_(j, k) * x(i, k);
+                    acc = acc + weight_.value()(j, k) * x(i, k);
                 }
-                if (use_bias_) acc = acc + bias_[j];
+                if (use_bias_) acc = acc + bias_.value()[j];
                 out(i, j) = acc;
             }
         }
@@ -94,14 +93,14 @@ public:
             if (use_bias_) {
                 quaternion<T> acc{};
                 for (std::size_t i = 0; i < batch; ++i) acc = acc + dy(i, j);
-                dbias_[j] = dbias_[j] + acc;
+                bias_.grad()[j] = bias_.grad()[j] + acc;
             }
             for (std::size_t k = 0; k < in_; ++k) {
                 quaternion<T> acc{};
                 for (std::size_t i = 0; i < batch; ++i) {
                     acc = acc + dy(i, j) * x_(i, k).conjugate();
                 }
-                dweight_(j, k) = dweight_(j, k) + acc;
+                weight_.grad()(j, k) = weight_.grad()(j, k) + acc;
             }
         }
 #pragma omp parallel for collapse(2) schedule(static)
@@ -109,7 +108,7 @@ public:
             for (std::size_t k = 0; k < in_; ++k) {
                 quaternion<T> acc{};
                 for (std::size_t j = 0; j < out_; ++j) {
-                    acc = acc + weight_(j, k).conjugate() * dy(i, j);
+                    acc = acc + weight_.value()(j, k).conjugate() * dy(i, j);
                 }
                 dx(i, k) = acc;
             }
@@ -118,30 +117,28 @@ public:
     }
 
     void apply_gradients(T lr) {
-        for (std::size_t i = 0; i < weight_.size(); ++i) {
-            weight_[i] = weight_[i] - dweight_[i] * lr;
+        for (std::size_t i = 0; i < weight_.value().size(); ++i) {
+            weight_.value()[i] = weight_.value()[i] - weight_.grad()[i] * lr;
         }
         if (use_bias_) {
-            for (std::size_t i = 0; i < bias_.size(); ++i) {
-                bias_[i] = bias_[i] - dbias_[i] * lr;
+            for (std::size_t i = 0; i < bias_.value().size(); ++i) {
+                bias_.value()[i] = bias_.value()[i] - bias_.grad()[i] * lr;
             }
         }
         zero_grad();
     }
 
     void zero_grad() {
-        for (std::size_t i = 0; i < dweight_.size(); ++i) dweight_[i] = quaternion<T>();
-        for (std::size_t i = 0; i < dbias_.size(); ++i) dbias_[i] = quaternion<T>();
+        weight_.zero_grad();
+        bias_.zero_grad();
     }
 
 private:
     std::size_t in_;
     std::size_t out_;
     bool use_bias_;
-    tensor<quaternion<T>> weight_;
-    tensor<quaternion<T>> bias_;
-    tensor<quaternion<T>> dweight_;
-    tensor<quaternion<T>> dbias_;
+    Parameter<T> weight_;
+    Parameter<T> bias_;
     tensor<quaternion<T>> x_;
 };
 
