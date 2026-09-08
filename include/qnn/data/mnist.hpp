@@ -18,8 +18,8 @@ namespace qnn {
 namespace data {
 
 struct mnist {
-    std::vector<tensor<quaternion<float>>> images;
-    std::vector<std::size_t> labels;
+    tensor<quaternion<float>> images;
+    tensor<std::uint8_t> labels;
 };
 
 inline std::vector<std::uint8_t> read_gz(const std::string& path) {
@@ -59,10 +59,9 @@ inline mnist load_mnist(const std::string& images_path, const std::string& label
         throw std::runtime_error("mnist: unexpected dimensions");
 
     mnist out;
-    out.images.reserve(n_img);
-    out.labels.reserve(n_lbl);
+    out.images = tensor<quaternion<float>>(::qnn::shape{std::size_t(n_img), 14, 14});
+    out.labels = tensor<std::uint8_t>(::qnn::shape{std::size_t(n_lbl)});
     for (std::uint32_t n = 0; n < n_img; ++n) {
-        tensor<quaternion<float>> img(::qnn::shape{14, 14});
         const std::size_t base = std::size_t(n) * 784;
         for (std::size_t r = 0; r < 14; ++r) {
             for (std::size_t c = 0; c < 14; ++c) {
@@ -70,12 +69,11 @@ inline mnist load_mnist(const std::string& images_path, const std::string& label
                 const std::size_t tr = base + (2 * r) * 28 + (2 * c) + 1;
                 const std::size_t bl = base + (2 * r + 1) * 28 + (2 * c);
                 const std::size_t br = base + (2 * r + 1) * 28 + (2 * c) + 1;
-                img(r, c) = quaternion<float>(imgs[tl] / 255.0f, imgs[tr] / 255.0f,
-                                              imgs[bl] / 255.0f, imgs[br] / 255.0f);
+                out.images(n, r, c) = quaternion<float>(imgs[tl] / 255.0f, imgs[tr] / 255.0f,
+                                                        imgs[bl] / 255.0f, imgs[br] / 255.0f);
             }
         }
-        out.images.push_back(img);
-        out.labels.push_back(lbls[8 + n]);
+        out.labels[n] = lbls[8 + n];
     }
     return out;
 }
