@@ -33,6 +33,25 @@ Quaternion MLP on MNIST (196→64→10, MSE one-hot, SGD lr 0.1, 8 epochs):
 
 Hand-rolled Hamilton backprop keeps pace with a GPU reference at equal setup.
 
+#### Full-quaternion targets experiment
+
+The targets and decoder normally use only the real part (`w`). Instead of real
+one-hot targets, classes can be encoded as fixed unit quaternion codes and
+decoded by full-quaternion dot-product alignment:
+
+| scheme | test acc |
+|---|---|
+| real-only one-hot (`w`) | 86.67% |
+| cross-polytope codes + dot decode | 86.63% |
+| 600-cell codes + dot decode | 85.93% |
+| torch T4 (real MLP) | 86.43% |
+
+All statistically tied — at this capacity the real part alone saturates the
+task, so the extra imaginary degrees of freedom are headroom, not free
+accuracy. They should matter when capacity is the bottleneck (tiny nets or
+harder, image-scale tasks like the QCNN). Example:
+`examples/mnist_with_not_real_target.cpp`.
+
 On the roadmap: conv2d/QCNN, attention/transformer, Python bindings.
 
 ## Building
