@@ -12,6 +12,8 @@ add_library(qnn STATIC ${QNN_SOURCES})
 target_include_directories(qnn PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_compile_options(qnn PRIVATE -Wall -Wextra -Werror)
 
+find_package(ZLIB REQUIRED)
+
 enable_testing()
 
 function(qnn_add_executable target source)
@@ -45,3 +47,10 @@ foreach(_src ${TEST_SOURCES})
         add_test(NAME test_${_group}_${_name} COMMAND test_${_group}_${_name})
     endif()
 endforeach()
+
+if(TARGET example_mnist)
+    target_link_libraries(example_mnist PRIVATE ZLIB::ZLIB)
+endif()
+if(TARGET test_data_test_mnist)
+    target_link_libraries(test_data_test_mnist PRIVATE ZLIB::ZLIB)
+endif()
