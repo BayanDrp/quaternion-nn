@@ -29,7 +29,7 @@ Implemented so far:
 Quaternion MLP on MNIST (196→64→10, MSE one-hot, SGD lr 0.1, 8 epochs):
 
 - **86.67%** test accuracy — C++17, OpenMP x8, ~3 min (see `examples/mnist.cpp`)
-- **86.43%** — PyTorch reference on Tesla T4 (`python/mnist_torch.py`)
+- **86.43%** — PyTorch reference on Tesla T4 (`benchmarks/mnist_torch.py`)
 
 Hand-rolled Hamilton backprop keeps pace with a GPU reference at equal setup.
 
@@ -95,7 +95,7 @@ include/qnn/
 src/qnn/      matching implementations
 tests/        ctest unit tests (8, mirror of modules)
 examples/     quaternion demo, xor, qmlp/qcnn mnist, qtransformer demo
-benchmarks/   quaternion ops, matmul, attention
+benchmarks/   quaternion ops, matmul, attention, torch reference cross-checks
 python/       bindings (phase 5)
 docs/         design docs (as phases land)
 ```
