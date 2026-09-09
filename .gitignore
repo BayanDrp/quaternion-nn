@@ -4,6 +4,7 @@ cmake-build-*/
 *.o
 *.a
 *.so
+Testing/
 
 # Python
 __pycache__/
