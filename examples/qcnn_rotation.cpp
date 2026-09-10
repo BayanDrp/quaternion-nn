@@ -196,7 +196,6 @@ int main(int argc, char** argv) {
                 for (std::size_t i = 0; i < a2.size(); ++i) a2[i] = split_tanh(y2[i]);
                 qhat = l3.forward(a2);
                 for (std::size_t i = 0; i < batch; ++i) {
-                    const std::size_t s = off + i;
                     const qf o = qhat(i, 0);
                     const float n2 = std::sqrt(o.w * o.w + o.x * o.x +
                                                o.y * o.y + o.z * o.z);

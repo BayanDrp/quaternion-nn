@@ -107,12 +107,12 @@ int main() {
         }
     }
 
-    // ---- no-bias: single parameter, rank-3 input [N, H, W] ----
+    // ---- no-bias: single parameter, explicit single-channel input [N,1,H,W] ----
     {
         qnn::nn::layers::conv2d<double> nb(1, shape{3, 3}, 1, 0, 1, false);
         CHECK(nb.parameters().size() == 1);
         CHECK(nb.gradients().size() == 1);
-        tensor<qd> x1(shape{2, 5, 5});
+        tensor<qd> x1(shape{2, 1, 5, 5});
         for (std::size_t i = 0; i < x1.size(); ++i)
             x1[i] = qd(0.01 * i, -0.02 * i, 0, 0.03 * i);
         auto y1 = nb.forward(x1);
@@ -122,8 +122,8 @@ int main() {
         for (std::size_t i = 0; i < dy1.size(); ++i) dy1[i] = qd(1, 0, 0, 0);
         nb.zero_grad();
         auto dx1 = nb.backward(dy1);
-        CHECK(dx1.rank() == 3);
-        CHECK(dx1.dim(0) == 2 && dx1.dim(1) == 5 && dx1.dim(2) == 5);
+        CHECK(dx1.rank() == 4);
+        CHECK(dx1.dim(0) == 2 && dx1.dim(1) == 1 && dx1.dim(2) == 5 && dx1.dim(3) == 5);
     }
 
     // ---- apply_gradients moves kernel and bias ----

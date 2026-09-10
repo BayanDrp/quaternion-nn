@@ -2,8 +2,11 @@
 #define QNN_NN_LAYERS_ACTIVATION_HPP
 
 #include <cmath>
+#include <cstddef>
+#include <vector>
 
 #include "qnn/core/quaternion.hpp"
+#include "qnn/nn/module.hpp"
 
 namespace qnn {
 namespace nn {
@@ -46,6 +49,63 @@ quaternion<T> split_tanh_prime(const quaternion<T>& q) {
     auto d = [](T v) { T t = std::tanh(v); return T(1) - t * t; };
     return quaternion<T>(d(q.w), d(q.x), d(q.y), d(q.z));
 }
+
+// Split activation as a Module, so it composes inside sequential<T>.
+// Applies the chosen activation elementwise to every component of every
+// quaternion; backward gates dy by the activation derivative at the cached
+// pre-activation input.
+template <typename T>
+class split_activation : public Module<T> {
+public:
+    enum class kind { relu, sigmoid, tanh };
+
+    explicit split_activation(kind k = kind::tanh) : kind_(k) {}
+
+    kind activation() const { return kind_; }
+
+    std::vector<tensor<quaternion<T>>*> parameters() override { return {}; }
+    std::vector<tensor<quaternion<T>>*> gradients() override { return {}; }
+
+    tensor<quaternion<T>> forward(const tensor<quaternion<T>>& x) override {
+        x_ = x;
+        tensor<quaternion<T>> y(x.shape());
+        for (std::size_t i = 0; i < x.size(); ++i) y[i] = apply1(x[i]);
+        return y;
+    }
+
+    tensor<quaternion<T>> backward(const tensor<quaternion<T>>& dy) override {
+        assert(dy.shape() == x_.shape());
+        tensor<quaternion<T>> dx(dy.shape());
+        for (std::size_t i = 0; i < dy.size(); ++i) {
+            const quaternion<T> g = prime1(x_[i]);
+            dx[i] = quaternion<T>(dy[i].w * g.w, dy[i].x * g.x,
+                                  dy[i].y * g.y, dy[i].z * g.z);
+        }
+        return dx;
+    }
+
+private:
+    quaternion<T> apply1(const quaternion<T>& q) const {
+        switch (kind_) {
+            case kind::relu: return split_relu(q);
+            case kind::sigmoid: return split_sigmoid(q);
+            case kind::tanh: return split_tanh(q);
+        }
+        return q;
+    }
+
+    quaternion<T> prime1(const quaternion<T>& q) const {
+        switch (kind_) {
+            case kind::relu: return split_relu_prime(q);
+            case kind::sigmoid: return split_sigmoid_prime(q);
+            case kind::tanh: return split_tanh_prime(q);
+        }
+        return quaternion<T>(1, 1, 1, 1);
+    }
+
+    kind kind_;
+    tensor<quaternion<T>> x_;
+};
 
 }  // namespace layers
 }  // namespace nn

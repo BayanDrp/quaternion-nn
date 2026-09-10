@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <random>
+#include <vector>
 
 #include "qnn/core/quaternion.hpp"
 #include "qnn/core/shape.hpp"
@@ -19,7 +20,11 @@ namespace nn {
 namespace layers {
 
 // Batched 2D convolution layer. Wraps functional::conv2d / backward_conv2d.
-// input:  [N, H, W] (1 channel) or [N, C, H, W]
+//
+// Shape convention (shared by pool2d, flatten, qcnn): image tensors always
+// carry an explicit channel dimension, [N, C, H, W]. A single-channel input is
+// [N, 1, H, W] — there is no implicit rank-3 [N, H, W] form at layer level.
+//
 // output: [N, out_channels, oh, ow]
 template <typename T = float>
 class conv2d : public qnn::nn::Module<T> {
@@ -71,19 +76,15 @@ public:
         return gs;
     }
 
+    // input: [N, C_in, H, W]
     tensor<quaternion<T>> forward(const tensor<quaternion<T>>& x) override {
-        assert(x.rank() == 3 || x.rank() == 4);  // [N,H,W] or [N,C,H,W]
-        const bool has_c = x.rank() == 4;
+        assert(x.rank() == 4);  // [N, C, H, W] — see class comment
         const std::size_t batch = x.dim(0);
-        const std::size_t h_off = has_c ? 2 : 1;
-        assert((has_c ? x.dim(1) : 1) == in_);
-
-        const int H = static_cast<int>(x.dim(h_off));
-        const int W = static_cast<int>(x.dim(h_off + 1));
-        const int oh_i =
-            (H + 2 * padding_ - static_cast<int>(kh_)) / stride_ + 1;
-        const int ow_i =
-            (W + 2 * padding_ - static_cast<int>(kw_)) / stride_ + 1;
+        assert(x.dim(1) == in_);
+        const int H = static_cast<int>(x.dim(2));
+        const int W = static_cast<int>(x.dim(3));
+        const int oh_i = (H + 2 * padding_ - static_cast<int>(kh_)) / stride_ + 1;
+        const int ow_i = (W + 2 * padding_ - static_cast<int>(kw_)) / stride_ + 1;
         assert(oh_i > 0 && ow_i > 0);
         const std::size_t oh = static_cast<std::size_t>(oh_i);
         const std::size_t ow = static_cast<std::size_t>(ow_i);
@@ -91,7 +92,7 @@ public:
         tensor<quaternion<T>> out(::qnn::shape{batch, out_, oh, ow});
 #pragma omp parallel for schedule(static)
         for (std::size_t b = 0; b < batch; ++b) {
-            const tensor<quaternion<T>> img = slice_image(x, b, has_c);
+            const tensor<quaternion<T>> img = slice_image(x, b);
             const tensor<quaternion<T>> y =
                 qnn::functional::conv2d(img, kernel_.value(), padding_, stride_);
             for (std::size_t co = 0; co < out_; ++co) {
@@ -109,11 +110,11 @@ public:
         return output_;
     }
 
+    // dy: [N, C_out, oh, ow]; returns dx [N, C_in, H, W]
     tensor<quaternion<T>> backward(const tensor<quaternion<T>>& dy) override {
         assert(dy.rank() == 4);  // [N, C_out, oh, ow]
         assert(dy.dim(0) == x_.dim(0));
         assert(dy.dim(1) == out_);
-        const bool has_c = x_.rank() == 4;
         const std::size_t batch = x_.dim(0);
         const std::size_t oh = dy.dim(2), ow = dy.dim(3);
 
@@ -124,7 +125,7 @@ public:
             tensor<quaternion<T>> bacc(bias_.grad().shape());
 #pragma omp for schedule(static)
             for (std::size_t b = 0; b < batch; ++b) {
-                const tensor<quaternion<T>> img = slice_image(x_, b, has_c);
+                const tensor<quaternion<T>> img = slice_image(x_, b);
                 const tensor<quaternion<T>> dy_img = slice_grad(dy, b);
                 const auto [dx_img, dk] = qnn::functional::backward_conv2d(
                     img, kernel_.value(), dy_img, padding_, stride_);
@@ -140,7 +141,7 @@ public:
                     }
                     bacc[co] = bacc[co] + acc;
                 }
-                paste_image(dx, b, dx_img, has_c);
+                paste_image(dx, b, dx_img);
             }
 #pragma omp critical
             {
@@ -176,24 +177,15 @@ public:
 
 private:
     static tensor<quaternion<T>> slice_image(const tensor<quaternion<T>>& x,
-                                             std::size_t b, bool has_c) {
-        tensor<quaternion<T>> img;
-        if (has_c) {
-            const std::size_t C = x.dim(1), H = x.dim(2), W = x.dim(3);
-            img = tensor<quaternion<T>>(::qnn::shape{1, C, H, W});
-            for (std::size_t c = 0; c < C; ++c) {
-                for (std::size_t i = 0; i < H; ++i) {
-                    for (std::size_t j = 0; j < W; ++j) {
-                        img(0, c, i, j) = x(b, c, i, j);
-                    }
-                }
-            }
-        } else {
-            const std::size_t H = x.dim(1), W = x.dim(2);
-            img = tensor<quaternion<T>>(::qnn::shape{1, H, W});
+                                             std::size_t b) {
+        // functional::conv2d expects a single image with an explicit channel
+        // dim: [1, C, H, W]. Rank-3 would be read as a single-channel image.
+        const std::size_t C = x.dim(1), H = x.dim(2), W = x.dim(3);
+        tensor<quaternion<T>> img(::qnn::shape{1, C, H, W});
+        for (std::size_t c = 0; c < C; ++c) {
             for (std::size_t i = 0; i < H; ++i) {
                 for (std::size_t j = 0; j < W; ++j) {
-                    img(0, i, j) = x(b, i, j);
+                    img(0, c, i, j) = x(b, c, i, j);
                 }
             }
         }
@@ -215,21 +207,12 @@ private:
     }
 
     static void paste_image(tensor<quaternion<T>>& dx, std::size_t b,
-                            const tensor<quaternion<T>>& dx_img, bool has_c) {
-        if (has_c) {
-            const std::size_t C = dx.dim(1), H = dx.dim(2), W = dx.dim(3);
-            for (std::size_t c = 0; c < C; ++c) {
-                for (std::size_t i = 0; i < H; ++i) {
-                    for (std::size_t j = 0; j < W; ++j) {
-                        dx(b, c, i, j) = dx_img(0, c, i, j);
-                    }
-                }
-            }
-        } else {
-            const std::size_t H = dx.dim(1), W = dx.dim(2);
+                            const tensor<quaternion<T>>& dx_img) {
+        const std::size_t C = dx.dim(1), H = dx.dim(2), W = dx.dim(3);
+        for (std::size_t c = 0; c < C; ++c) {
             for (std::size_t i = 0; i < H; ++i) {
                 for (std::size_t j = 0; j < W; ++j) {
-                    dx(b, i, j) = dx_img(0, i, j);
+                    dx(b, c, i, j) = dx_img(0, c, i, j);
                 }
             }
         }

@@ -115,7 +115,7 @@ int main(int argc, char** argv) {
     std::fflush(stdout);
     const float scale = 2.0f / static_cast<float>(batch * 1 * 4);
 
-    tensor<qf> x(shape{batch, kInH, kInW});
+    tensor<qf> x(shape{batch, 1, kInH, kInW});
     tensor<qf> tgt(shape{batch, 1});
     tensor<qf> conv1_out(shape{batch, kC1, kInH, kInW});
     tensor<qf> pooled1(shape{batch, kC1, kP1, kP1});
@@ -137,7 +137,7 @@ int main(int argc, char** argv) {
                 const std::size_t s = off + i;
                 for (std::size_t r = 0; r < kInH; ++r)
                     for (std::size_t ccol = 0; ccol < kInW; ++ccol)
-                        x(i, r, ccol) = train.images(s, r, ccol);
+                        x(i, 0, r, ccol) = train.images(s, r, ccol);
                 tgt(i, 0) = code(train.labels[s]);
             }
 
@@ -187,7 +187,7 @@ int main(int argc, char** argv) {
             const std::size_t s = off + i;
             for (std::size_t r = 0; r < kInH; ++r)
                 for (std::size_t ccol = 0; ccol < kInW; ++ccol)
-                    x(i, r, ccol) = test.images(s, r, ccol);
+                    x(i, 0, r, ccol) = test.images(s, r, ccol);
         }
         tensor<qf> y1 = conv1.forward(x);
         for (std::size_t i = 0; i < conv1_out.size(); ++i) conv1_out[i] = split_tanh(y1[i]);
