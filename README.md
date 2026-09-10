@@ -17,9 +17,12 @@ Implemented so far:
 
 - `core/` — `quaternion<T>` (Hamilton product, conjugate, inverse, norm),
   `shape`, `tensor<T>` (row-major, rank-N), `quaternion_vector`/`matrix` views
-- `functional/` — Hamilton `matmul`, `matvec`, `split_softmax` (stable), `softmax`
-- `nn/` — xavier/uniform init, split ReLU/sigmoid/tanh, `linear` layer with
-  forward + backward + gradient accumulators (OpenMP-threaded)
+- `functional/` — Hamilton `matmul`/`matvec`, split ReLU/sigmoid/tanh,
+  `split_softmax` (stable), `conv2d`/`pool2d`, `flatten`
+- `nn/` — xavier/uniform init, `linear`, `conv2d`, `pool2d`, `flatten`
+  layers with forward + backward + gradient accumulators (OpenMP-threaded),
+  `split_activation`, `sequential<T>` composition, `Module`/`Parameter`
+- `nn/models/` — config-driven `qcnn<T>` model
 - `loss/` — component-wise `mse`, `cross_entropy` + `cross_entropy_grad`
 - `optim/` — `optimizer` base, `sgd`, `adam` (per-component)
 - `data/` — MNIST IDX loader (zlib): 2×2 pixel blocks → quaternions, {N,14,14}
@@ -108,14 +111,14 @@ Requires: CMake ≥ 3.14, a C++17 compiler. No external libraries.
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build          # 16 tests
+ctest --test-dir build          # 20 tests
 ./build/example_xor             # trains XOR: accuracy 4/4, loss -> 0
 ./build/bench_mnist             # MNIST: 86.67% test (needs tools/get_mnist.sh)
 ```
 
-Empty stub files keep their `src/qnn/` slot but are skipped by the build; after
-filling one in, re-run the `cmake -S . -B build` configure step so its target
-gets registered.
+Empty stub files keep their slot but are skipped by the build; after filling
+one in, re-run the `cmake -S . -B build` configure step so its target gets
+registered. Consumers can just `#include "qnn/qnn.hpp"` for the whole API.
 
 ## Conventions
 
@@ -159,14 +162,16 @@ showing the full backward pass through the Hamilton product.
 
 ```
 include/qnn/
+  qnn.hpp     master header — includes the whole public API
   core/       quaternion, vectors, matrices, tensors, shapes
-  nn/         module, parameter, init + layers/ models/
+  functional/ matmul, softmax, relu, sigmoid, tanh, convolution, pool, flatten
+  nn/         module, parameter, init, sequential + layers/ models/
   optim/      sgd, adam
   loss/       mse, cross_entropy
-  functional/ matmul, softmax, convolution, normalization
-  io/         tensor and model serialization
-src/qnn/      matching implementations
-tests/        ctest unit tests (8, mirror of modules)
+  data/       MNIST loader (declaration)
+  io/         tensor and model serialization (phase 5)
+src/qnn/      non-template sources (mnist loader)
+tests/        ctest unit tests (20, mirror of modules)
 examples/     API feature demos: xor, module parameters
 benchmarks/   QCNN & MLP vs PyTorch workloads (qcnn_mnist/cifar/rotation, mnist), data prep
 python/       bindings (phase 5)
@@ -178,8 +183,6 @@ docs/         design docs (as phases land)
 - [x] **Phase 0** — core quaternion math + golden tests (`i*j=k`, norm, inverse).
 - [x] **Phase 1** — vector/matrix/tensor, Hamilton matmul, split activations, MSE.
 - [x] **Phase 2** — component-wise autograd + finite-difference grad checks + SGD.
-- [x] **Phase 3** — Linear ✓, Adam ✓, XOR converges 4/4 ✓, split-softmax +
-      cross-entropy classification head ✓.
 - [x] **Phase 3** — Linear ✓, Adam ✓, XOR converges 4/4 ✓, split-softmax +
       cross-entropy classification head ✓.
 - [x] **Phase 4** — MNIST loader ✓, MNIST example (86.67% test) ✓, OpenMP ✓,

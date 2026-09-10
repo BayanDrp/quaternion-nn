@@ -197,6 +197,9 @@ backward_conv2d(const tensor<quaternion<T>>& input,
     return {grad_input, grad_kernel};
 }
 
+
+
+
 }  // namespace functional
 }  // namespace qnn
 
