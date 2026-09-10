@@ -52,7 +52,54 @@ accuracy. They should matter when capacity is the bottleneck (tiny nets or
 harder, image-scale tasks like the QCNN). Example:
 `examples/mnist_with_not_real_target.cpp`.
 
-On the roadmap: conv2d/QCNN, attention/transformer, Python bindings.
+#### QCNN vs PyTorch benchmark suite
+
+A full image-model comparison: quaternion QCNN vs a real PyTorch CNN on the
+same data, preprocessing, order, seeds, loss, and decode — the only difference
+is the weight type (each quaternion weight uses 4 reals). Scripts in
+`benchmarks/` (`cnn_torch.py`, `cnn_cifar_torch.py`, `prep_cifar10.py`,
+`examples/qcnn_cifar.cpp`, `examples/qcnn_mnist.cpp`, ...).
+
+MNIST (16k train, 6 epochs, batch 128, both sides lr 0.1):
+
+| model | real params | test acc |
+|---|---|---|
+| QCNN 1-hot (conv 8→16 → 144→10) | 10,792 | 67.07% |
+| torch 1-hot, equal width | 2,914 | 85.65% |
+| torch 1-hot, equal params | 10,738 | 89.74% |
+| QCNN 4-D quaternion codes | 5,572 | 74.98% |
+| torch 4-D codes | 5,532 | 86.34% |
+
+CIFAR-10 (10k train, batch 128, per-channel-normalized RGB packed as
+`(w,x,y)=(R,G,B)`; QCNN `lr 0.025` 1-hot / `lr 0.01` 4-D vs torch `lr 0.1`):
+
+| model | real params | 4 ep | 16 ep |
+|---|---|---|---|
+| QCNN 1-hot | 45,992 | 12.72% | — |
+| torch 1-hot | 11,642 | 41.47% | — |
+| torch 1-hot, equal budget | 45,866 | 45.77% | — |
+| QCNN 4-D codes | 9,092 | 16.38% | 20.36% |
+| torch 4-D codes | 5,492 | 24.10% | 28.69% |
+
+Rotation estimation (regression to a unit quaternion — the quaternion's home
+turf; 12k/2k synthetically generated rotations, batch 256, identical
+squared-cosine loss `1 − <q̂,q>²/(|q̂|²|q|²)`, seeds shared):
+
+| model | real params | epochs | mean θ (best) | median θ (best) | <15° |
+|---|---|---|---|---|---|
+| torch MLP 9→32→32→4 | 1,508 | 30 | 9.3° (7.3°) | 5.3° (4.6°) | 94% |
+| QCNN MLP 3→32→32→1 quat | 4,868 | 100, lr 0.3 | 50.4° | 41.9° | 6.9% |
+
+Honest summary: at every matched setup the PyTorch reference wins, often by a
+large margin. The quaternion networks train far slower (CIFAR needs ~4× more
+epochs to approach torch's 4-epoch results, and high learning rates make them
+diverge), and they generalize poorly — training loss falls while test accuracy
+stays near chance, the signature of coarse memorization. Even rotation
+regression, which should be structurally natural for quaternions, does not
+rescue it: torch learns the target function in ~5 epochs (76% <15°); the
+quaternion MLP stays near chance after 100. Reproduce with
+`benchmarks/gen_rotation_data.py` + `examples/qcnn_rotation.cpp` vs
+`benchmarks/rotation_torch.py`.
 
 ## Building
 
@@ -61,7 +108,7 @@ Requires: CMake ≥ 3.14, a C++17 compiler. No external libraries.
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-ctest --test-dir build          # 11 tests
+ctest --test-dir build          # 16 tests
 ./build/example_xor             # trains XOR: accuracy 4/4, loss -> 0
 ./build/example_mnist           # MNIST: 86.67% test (needs tools/get_mnist.sh)
 ```
@@ -121,7 +168,7 @@ include/qnn/
 src/qnn/      matching implementations
 tests/        ctest unit tests (8, mirror of modules)
 examples/     quaternion demo, xor, qmlp/qcnn mnist, qtransformer demo
-benchmarks/   quaternion ops, matmul, attention, torch reference cross-checks
+benchmarks/   QCNN vs PyTorch cross-checks, rotation bench, data prep
 python/       bindings (phase 5)
 docs/         design docs (as phases land)
 ```
@@ -133,8 +180,10 @@ docs/         design docs (as phases land)
 - [x] **Phase 2** — component-wise autograd + finite-difference grad checks + SGD.
 - [x] **Phase 3** — Linear ✓, Adam ✓, XOR converges 4/4 ✓, split-softmax +
       cross-entropy classification head ✓.
-- [~] **Phase 4** — MNIST loader ✓, MNIST example (86.67% test) ✓, OpenMP ✓;
-      conv2d/norm/embedding, QCNN, benchmarks next.
+- [x] **Phase 3** — Linear ✓, Adam ✓, XOR converges 4/4 ✓, split-softmax +
+      cross-entropy classification head ✓.
+- [x] **Phase 4** — MNIST loader ✓, MNIST example (86.67% test) ✓, OpenMP ✓,
+      conv2d/pool2d ✓, QCNN (MNIST/CIFAR/rotation) ✓, benchmark suite ✓.
 - [ ] **Phase 5** — attention/transformer, model IO, Python bindings, publish.
 
 ## License
