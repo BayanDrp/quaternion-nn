@@ -1,3 +1,5 @@
+// sequential<T>: forward/backward wiring across child modules, concatenated
+// parameters()/gradients() lists, and an end-to-end SGD training smoke test.
 #include <cmath>
 #include <cstddef>
 

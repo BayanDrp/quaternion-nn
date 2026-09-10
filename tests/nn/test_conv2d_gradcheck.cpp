@@ -1,3 +1,7 @@
+// conv2d: finite-difference gradcheck of the input gradient AND all parameter
+// gradients (kernel + bias) across multi-channel, strided, padded,
+// rectangular-kernel and no-bias configurations. This is what caught the
+// rank-3 slice bug (multi-channel convs ignored every input channel but 0).
 #include <cmath>
 #include <cstddef>
 

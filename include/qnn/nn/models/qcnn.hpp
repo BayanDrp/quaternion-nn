@@ -23,7 +23,7 @@ namespace models {
 // Clean, configurable quaternion CNN.
 //
 // Builds the standard convolutional stack:
-//   [conv(k,k) -> split-activation -> pool2x] repeated for each entry in
+//   [conv(k,k) -> split-activation -> pool] repeated for each entry in
 //   Config::channels, then flatten -> linear(out_features).
 //
 // Shape convention: images are [N, C, H, W] end to end (never implicit rank-3).
@@ -32,21 +32,22 @@ template <typename T = float>
 class qcnn : public Module<T> {
 public:
     struct Config {
-        std::size_t in_channels = 1;
-        std::size_t height = 14;
-        std::size_t width = 14;
-        std::vector<std::size_t> channels = {8, 16};
-        std::size_t kernel = 3;
+        std::size_t in_channels = 1;  // image channels (1 for grayscale/RGB-packed)
+        std::size_t height = 14;      // input image height (one sample)
+        std::size_t width = 14;       // input image width (one sample)
+        std::vector<std::size_t> channels = {8, 16};  // conv width per block
+        std::size_t kernel = 3;                       // square conv kernel size
         int padding = 1;
         int stride = 1;
         std::size_t pool_size = 2;
         int pool_stride = 2;
-        functional::pool_type pool_type = functional::pool_type::max;
-        bool use_activation = true;
+        functional::pool_type pool_type =
+            functional::pool_type::max;  // max or average per block
+        bool use_activation = true;  // false => conv + pool only (linear stack)
         typename layers::split_activation<T>::kind activation =
             layers::split_activation<T>::kind::tanh;
-        std::size_t out_features = 10;
-        std::uint32_t seed = 7;
+        std::size_t out_features = 10;   // linear head width
+        std::uint32_t seed = 7;          // RNG seed for conv/linear init
     };
 
     explicit qcnn(const Config& cfg) : net_(), flat_(0) {

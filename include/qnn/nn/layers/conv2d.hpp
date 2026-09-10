@@ -25,7 +25,15 @@ namespace layers {
 // carry an explicit channel dimension, [N, C, H, W]. A single-channel input is
 // [N, 1, H, W] — there is no implicit rank-3 [N, H, W] form at layer level.
 //
+// WARNING: do NOT pass a rank-3 image to functional::conv2d intending C
+// channels. functional treats rank-3 as [C==1, H, W], so a [C,H,W] tensor is
+// silently read as a single channel with H'=C. slice_image() below inserts the
+// explicit leading 1 so the C channel dim is always honored. This was a real
+// latent bug (multi-channel convs only ever used input channel 0).
+//
 // output: [N, out_channels, oh, ow]
+// kernel: [out_channels, in_channels, kh, kw]; backward accumulates both the
+// kernel and (optional) bias gradients into the parameter grads.
 template <typename T = float>
 class conv2d : public qnn::nn::Module<T> {
 public:

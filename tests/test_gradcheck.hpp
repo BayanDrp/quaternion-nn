@@ -16,6 +16,17 @@
 // gradient accumulated in module->gradients() after forward + backward.
 //
 // All checks are done in double to keep central-difference noise negligible.
+//
+// FD tuning (learned the hard way):
+//   * eps ~ 1e-5..1e-4 works best for double. 1e-6 makes roundoff dominate for
+//     elements whose gradient is small relative to the probe scale (e.g. a
+//     conv where an = 0.003 while the probe sums to ~2e4).
+//   * max-pool has a non-differentiable argmax: if two window entries tie to
+//     within eps, +/-eps probes flip the routing and the FD value is garbage.
+//     Feed pools inputs with strictly monotone per-component values, or test
+//     max routing separately and use average pooling for model-level checks.
+//   * don't judge near-zero gradients by their ratio to the FD difference;
+//     use a symmetric relative criterion + an absolute roundoff floor.
 
 template <typename T>
 static T g_comp_of(const qnn::quaternion<T>& q, std::size_t c) {

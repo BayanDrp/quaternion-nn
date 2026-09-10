@@ -52,8 +52,15 @@ quaternion<T> split_tanh_prime(const quaternion<T>& q) {
 
 // Split activation as a Module, so it composes inside sequential<T>.
 // Applies the chosen activation elementwise to every component of every
-// quaternion; backward gates dy by the activation derivative at the cached
-// pre-activation input.
+// quaternion; backward gates dy by the activation derivative (componentwise
+// product) at the cached pre-activation input.
+//
+// CONVENTION: the split gate is a per-component product,
+//   dx = (dy.w*g'.w, dy.x*g'.x, dy.y*g'.y, dy.z*g'.z)
+// exactly as examples/xor.cpp does. This is NOT a Hamilton product — the
+// pre-refactor QCNN examples used "dy * split_*_prime(x)" (Hamilton), which
+// cross-mixes components of the backward gradient and is incorrect. Any new
+// split gate MUST use the componentwise form above.
 template <typename T>
 class split_activation : public Module<T> {
 public:

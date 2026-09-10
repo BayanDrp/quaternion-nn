@@ -1,3 +1,6 @@
+// pool2d: finite-difference input-gradient checks for max and average pooling
+// (overlapping, strided and rectangular windows) plus hand-checked argmax
+// routing and the average-pool 1/count gradient split.
 #include <cmath>
 #include <cstddef>
 
