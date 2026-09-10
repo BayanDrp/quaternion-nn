@@ -58,7 +58,7 @@ A full image-model comparison: quaternion QCNN vs a real PyTorch CNN on the
 same data, preprocessing, order, seeds, loss, and decode — the only difference
 is the weight type (each quaternion weight uses 4 reals). Scripts in
 `benchmarks/` (`cnn_torch.py`, `cnn_cifar_torch.py`, `prep_cifar10.py`,
-`examples/qcnn_cifar.cpp`, `examples/qcnn_mnist.cpp`, ...).
+`qcnn_cifar.cpp`, `qcnn_mnist.cpp`, ...).
 
 MNIST (16k train, 6 epochs, batch 128, both sides lr 0.1):
 
@@ -98,7 +98,7 @@ stays near chance, the signature of coarse memorization. Even rotation
 regression, which should be structurally natural for quaternions, does not
 rescue it: torch learns the target function in ~5 epochs (76% <15°); the
 quaternion MLP stays near chance after 100. Reproduce with
-`benchmarks/gen_rotation_data.py` + `examples/qcnn_rotation.cpp` vs
+`benchmarks/gen_rotation_data.py` + `benchmarks/qcnn_rotation.cpp` vs
 `benchmarks/rotation_torch.py`.
 
 ## Building
@@ -167,8 +167,8 @@ include/qnn/
   io/         tensor and model serialization
 src/qnn/      matching implementations
 tests/        ctest unit tests (8, mirror of modules)
-examples/     quaternion demo, xor, qmlp/qcnn mnist, qtransformer demo
-benchmarks/   QCNN vs PyTorch cross-checks, rotation bench, data prep
+examples/     API feature demos: quaternion ops, xor*, module parameters
+benchmarks/   QCNN vs PyTorch workloads (qcnn_mnist/cifar/rotation), data prep
 python/       bindings (phase 5)
 docs/         design docs (as phases land)
 ```
