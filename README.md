@@ -28,7 +28,7 @@ Implemented so far:
 
 Quaternion MLP on MNIST (196→64→10, MSE one-hot, SGD lr 0.1, 8 epochs):
 
-- **86.67%** test accuracy — C++17, OpenMP x8, ~3 min (see `examples/mnist.cpp`)
+- **86.67%** test accuracy — C++17, OpenMP x8, ~3 min (see `benchmarks/mnist.cpp`)
 - **86.43%** — PyTorch reference on Tesla T4 (`benchmarks/mnist_torch.py`)
 
 Hand-rolled Hamilton backprop keeps pace with a GPU reference at equal setup.
@@ -50,7 +50,7 @@ All statistically tied — at this capacity the real part alone saturates the
 task, so the extra imaginary degrees of freedom are headroom, not free
 accuracy. They should matter when capacity is the bottleneck (tiny nets or
 harder, image-scale tasks like the QCNN). Example:
-`examples/mnist_with_not_real_target.cpp`.
+`benchmarks/mnist_with_not_real_target.cpp`.
 
 #### QCNN vs PyTorch benchmark suite
 
@@ -110,7 +110,7 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ctest --test-dir build          # 16 tests
 ./build/example_xor             # trains XOR: accuracy 4/4, loss -> 0
-./build/example_mnist           # MNIST: 86.67% test (needs tools/get_mnist.sh)
+./build/bench_mnist             # MNIST: 86.67% test (needs tools/get_mnist.sh)
 ```
 
 Empty stub files keep their `src/qnn/` slot but are skipped by the build; after
@@ -167,8 +167,8 @@ include/qnn/
   io/         tensor and model serialization
 src/qnn/      matching implementations
 tests/        ctest unit tests (8, mirror of modules)
-examples/     API feature demos: quaternion ops, xor*, module parameters
-benchmarks/   QCNN vs PyTorch workloads (qcnn_mnist/cifar/rotation), data prep
+examples/     API feature demos: xor, module parameters
+benchmarks/   QCNN & MLP vs PyTorch workloads (qcnn_mnist/cifar/rotation, mnist), data prep
 python/       bindings (phase 5)
 docs/         design docs (as phases land)
 ```
