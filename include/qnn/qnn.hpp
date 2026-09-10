@@ -16,6 +16,7 @@
 #include "qnn/functional/convolution.hpp"
 #include "qnn/functional/flatten.hpp"
 #include "qnn/functional/matmul.hpp"
+#include "qnn/functional/normalization.hpp"
 #include "qnn/functional/pool.hpp"
 #include "qnn/functional/relu.hpp"
 #include "qnn/functional/sigmoid.hpp"
@@ -33,8 +34,10 @@
 #include "qnn/nn/layers/conv2d.hpp"
 #include "qnn/nn/layers/flatten.hpp"
 #include "qnn/nn/layers/linear.hpp"
+#include "qnn/nn/layers/normalization.hpp"
 #include "qnn/nn/layers/pool2d.hpp"
 #include "qnn/nn/models/qcnn.hpp"
+#include "qnn/nn/models/qmlp.hpp"
 
 #include "qnn/optim/adam.hpp"
 #include "qnn/optim/optimizer.hpp"
